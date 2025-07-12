@@ -75,7 +75,6 @@ This project simulates a **real-world UART communication pipeline** designed in 
 
 ## 📊 Diagrams *(to be added)*
 
-> Place the following in the repo under `/assets/` and link them in the README once available.
 
 - 📡 `block_diagram.png` – High-level data flow
 - 🔁 `tx_fsm.png` – Transmitter FSM state diagram
