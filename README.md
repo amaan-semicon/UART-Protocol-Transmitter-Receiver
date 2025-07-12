@@ -1,5 +1,4 @@
-# UART-Protocol-Transmitter-Receiver
-Verilog-based UART Transmitter and Receiver with FSM architecture, baud rate generator, and testbench simulation.
+
 # UART Protocol Transmitter and Receiver (with FIFO & RAM) – Verilog
 
 This project implements a complete **Universal Asynchronous Receiver-Transmitter (UART)** system using **Verilog HDL**, featuring FIFO buffering, RAM-based storage, and FSM-driven TX/RX modules for serial communication. The system is synthesizable and verified through simulation.
