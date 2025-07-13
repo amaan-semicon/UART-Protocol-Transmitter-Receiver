@@ -33,7 +33,7 @@ output  done
 //present-state
  always@(posedge clk or negedge reset)
     if(~reset)
-        q_present <= 'b0;
+        q_present <= 1'b0;
     else if(enable)
         q_present <= q_next;
     else
@@ -42,7 +42,7 @@ output  done
     assign done = (q_present == FINAL_VALUE);
  always@(*) begin
     if(done)
-        q_next = 'b0;
+        q_next = 1'b0;
     else
         q_next = q_present + 1 ;
         end
