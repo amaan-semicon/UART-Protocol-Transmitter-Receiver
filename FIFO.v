@@ -22,73 +22,105 @@
 
 module FIFO #(
   parameter FIFO_WIDTH = 8,
-  parameter FIFO_DEPTH = 8
+  parameter FIFO_DEPTH = 16
 )(
   input clk,
-  input reset,
-  input fifo_wr_enable,
-  input [FIFO_WIDTH - 1:0] fifo_wr_data,
-  output fifo_full,
-  input fifo_rd_enable,
-  output wire [FIFO_WIDTH - 1:0] fifo_rd_data,  // ✅ Must be wire, driven by memory
-  output fifo_empty,
-  output [$clog2(FIFO_DEPTH):0] fifo_data_count
+  input reset_n,
+
+  // Write
+  input wr_en,
+  input [FIFO_WIDTH - 1 : 0] data_in,
+  output FIFO_FULL,
+
+  // Read
+  input rd_en,
+  output [FIFO_WIDTH - 1 : 0] data_out,
+  output FIFO_EMPTY,
+
+  // Status
+  output [ $clog2(FIFO_DEPTH): 0 ] DATA_COUNT
 );
 
   // Internal signals
-  wire valid_fifo_wr;
-  wire valid_fifo_rd;
-  reg [$clog2(FIFO_DEPTH):0] dataCounter;
-  reg [$clog2(FIFO_DEPTH) - 1:0] wr_pointer;
-  reg [$clog2(FIFO_DEPTH) - 1:0] rd_pointer;
+  wire data_in_valid, data_out_valid;
+  reg wr_en_internal;
+  reg [$clog2(FIFO_DEPTH):0] DATA_COUNT_internal;
+  reg [$clog2(FIFO_DEPTH)-1:0] wr_pointer;
+  reg [$clog2(FIFO_DEPTH)-1:0] rd_pointer;
 
-  // Write and Read enables
-  assign valid_fifo_wr = fifo_wr_enable & ~fifo_full;
-  assign valid_fifo_rd = fifo_rd_enable & ~fifo_empty;
+  assign data_in_valid = wr_en & ~FIFO_FULL;
+  assign data_out_valid = rd_en & ~FIFO_EMPTY;
+  assign DATA_COUNT = DATA_COUNT_internal;
+  assign FIFO_FULL  = (DATA_COUNT_internal == FIFO_DEPTH) ? 1'b1 : 1'b0;
+  assign FIFO_EMPTY = (DATA_COUNT_internal == 0) ? 1'b1 : 1'b0;
 
-  // Status outputs
-  assign fifo_data_count = dataCounter;
-  assign fifo_full  = (dataCounter == FIFO_DEPTH);
-  assign fifo_empty = (dataCounter == 0);
-
-  // Data counter logic
+  // Write enable latch
   always @(posedge clk) begin
-    if (reset)
-      dataCounter <= 0;
-    else if (valid_fifo_wr & ~valid_fifo_rd)
-      dataCounter <= dataCounter + 1;
-    else if (valid_fifo_rd & ~valid_fifo_wr)
-      dataCounter <= dataCounter - 1;
+    if (~reset_n) 
+    begin
+      wr_en_internal <= 1'b0;
+    end 
+    else if (data_in_valid) 
+    begin
+      wr_en_internal <= 1'b1;
+    end 
+    else 
+    begin
+      wr_en_internal <= 1'b0;
+    end
   end
 
-  // Write pointer logic
+  // Data counter
   always @(posedge clk) begin
-    if (reset)
+    if (~reset_n) begin
+      DATA_COUNT_internal <= 0;
+    end 
+    else if (data_in_valid & ~data_out_valid) 
+    begin
+      DATA_COUNT_internal <= DATA_COUNT_internal + 1'b1;
+    end 
+    else if (~data_in_valid & data_out_valid) 
+    begin
+      DATA_COUNT_internal <= DATA_COUNT_internal - 1'b1;
+    end
+  end
+
+  // Write pointer
+  always @(posedge clk) begin
+    if (~reset_n) 
+    begin
       wr_pointer <= 0;
-    else if (valid_fifo_wr)
-      wr_pointer <= wr_pointer + 1;
+    end 
+    else if (data_in_valid) 
+    begin
+      wr_pointer <= wr_pointer + 1'b1;
+    end
   end
 
-  // Read pointer logic
+  // Read pointer
   always @(posedge clk) begin
-    if (reset)
+    if (~reset_n) 
+    begin
       rd_pointer <= 0;
-    else if (valid_fifo_rd)
-      rd_pointer <= rd_pointer + 1;
+    end 
+    else if (data_out_valid) 
+    begin
+      rd_pointer <= rd_pointer + 1'b1;
+    end
   end
 
-  // Memory instantiation
+  // Instantiate memory
   random_access_memory #(
-    .Width(FIFO_WIDTH),
-    .Depth(FIFO_DEPTH)
+    .WIDTH_MEM(FIFO_WIDTH),
+    .DEPTH_MEM(FIFO_DEPTH)
   ) fifo_mem (
     .clk(clk),
-    .wr_enable(valid_fifo_wr),
+    .wr_enable(wr_en_internal),
     .wr_address(wr_pointer),
-    .wr_data(fifo_wr_data),
+    .wr_data(data_in),
+    .rd_enable(rd_en),
     .rd_address(rd_pointer),
-    .rd_data(fifo_rd_data)  // ✅ This is driven inside memory
+    .rd_data(data_out)
   );
 
 endmodule
-
