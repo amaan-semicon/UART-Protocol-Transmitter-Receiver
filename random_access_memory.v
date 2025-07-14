@@ -21,26 +21,37 @@
 
 
 module random_access_memory
-#(parameter Width = 8, Depth = 16)(
-  input clk,
-  input wr_enable,                              // Should become high when you want to write
-  input [$clog2(Depth) - 1 : 0] wr_address,     // Write address
-  input [Width - 1 :0] wr_data,                 // Data to be written
-  input [$clog2(Depth) - 1:0] rd_address,       // Read address
-  output reg [Width - 1:0] rd_data              // Read data
+#(
+    parameter WIDTH_MEM = 8,
+    parameter DEPTH_MEM = 16
+)
+(
+    input clk,
+
+    // Write interface
+    input wr_enable,
+    input [($clog2(DEPTH_MEM))-1:0] wr_address,
+    input [WIDTH_MEM-1:0] wr_data,
+
+    // Read interface
+    input rd_enable,
+    input [($clog2(DEPTH_MEM))-1:0] rd_address,
+    output reg [WIDTH_MEM-1:0] rd_data
 );
 
-  reg [Width - 1:0] mem [0:Depth - 1];          // Declare memory block
+    // Memory declaration: [word width] [address depth]
+    reg [WIDTH_MEM-1:0] mem [0:DEPTH_MEM-1];
 
-  // Write logic
-  always @(posedge clk) begin
-    if (wr_enable)
-      mem[wr_address] <= wr_data;
-  end
+    // Write operation (synchronous)
+    always @(posedge clk) begin
+        if (wr_enable)
+            mem[wr_address] <= wr_data;
+    end
 
-  // Read logic (synchronous read, 1-cycle latency)
-  always @(posedge clk) begin
-    rd_data <= mem[rd_address];
-  end
+    // Read operation (synchronous, 1-cycle delay)
+    always @(posedge clk) begin
+        if (rd_enable)
+            rd_data <= mem[rd_address];
+    end
 
 endmodule
