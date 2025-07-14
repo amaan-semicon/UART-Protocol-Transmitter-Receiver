@@ -14,20 +14,21 @@
 //////////////////////////////////////////////////////////////////////////////////
 
 module Universal_Asnchronous_Transmitter_Reciever #(
-  parameter data_bits = 8,
-  parameter stop_bit_tick = 16
+  parameter DBIT = 8,
+  parameter SB_TICK = 16,
+  parameter FIFO_DEPTH = 16
 )(
   input clk,
-  input reset,
+  input reset_n,
 
   // Receiver interface
-  output [data_bits - 1:0] r_data,
+  output [DBIT - 1:0] r_data,
   input rd_uart,
   output rx_empty,
   input rx,
 
   // Transmitter interface
-  input [data_bits - 1 : 0] w_data,
+  input [DBIT - 1:0] w_data,
   input wr_uart,
   output tx_full,
   output tx,
@@ -36,70 +37,78 @@ module Universal_Asnchronous_Transmitter_Reciever #(
   input [10:0] TIMER_FINAL_VALUE
 );
 
+  //================ Baud Rate Generator =================//
   wire tick;
-  wire rx_done_tick;
-  wire tx_done_tick;
-  wire tx_fifo_empty;
-  wire [data_bits - 1:0] rx_dout;
-  wire [data_bits - 1:0] tx_din;
-  wire tx_start;
-
-  assign tx_start = ~tx_fifo_empty;
-
-  // Baud rate generator (16x oversampling)
-  baud_rate_generator #(.BITS(11)) baud_gen (
+  baud_rate_generator #( .BITS(11) ) timer (
     .clk(clk),
-    .reset(reset),
+    .reset_n(reset_n),     // Assuming module uses active-high reset internally
     .enable(1'b1),
     .FINAL_VALUE(TIMER_FINAL_VALUE),
     .done(tick)
   );
 
-  // UART Receiver
-  UART_RX #(.DBIT(data_bits), .SB_TICK(stop_bit_tick)) rx_inst (
+  //================ UART Receiver + FIFO =================//
+  wire rx_done_tick;
+  wire [DBIT-1:0] rx_dout;
+
+  UART_RX #(
+    .DBIT(DBIT),
+    .SB_TICK(SB_TICK)
+  ) receiver (
     .clk(clk),
-    .reset_n(~reset),
+    .reset_n(reset_n),
     .rx(rx),
     .s_tick(tick),
     .rx_done_tick(rx_done_tick),
     .rx_dout(rx_dout)
   );
 
-  // RX FIFO
-  FIFO #(.FIFO_WIDTH(data_bits), .FIFO_DEPTH(1024)) fifo_rx (
+  FIFO #(
+    .FIFO_WIDTH(DBIT),
+    .FIFO_DEPTH(FIFO_DEPTH)
+  ) fifo_rx (
     .clk(clk),
-    .reset(reset),
-    .fifo_wr_enable(rx_done_tick),
-    .fifo_wr_data(rx_dout),
-    .fifo_full(), // not used
-    .fifo_rd_enable(rd_uart),
-    .fifo_rd_data(r_data),
-    .fifo_empty(rx_empty),
-    .fifo_data_count()
+    .reset_n(reset_n),
+    .wr_en(rx_done_tick),
+    .data_in(rx_dout),
+    .FIFO_FULL(),         // Not needed in receive path
+    .rd_en(rd_uart),
+    .data_out(r_data),
+    .FIFO_EMPTY(rx_empty),
+    .DATA_COUNT()
   );
 
-  // UART Transmitter
-  UART_TX #(.DBIT(data_bits), .SB_TICK(stop_bit_tick)) tx_inst (
+  //================ UART Transmitter + FIFO =================//
+  wire tx_fifo_empty;
+  wire tx_done_tick;
+  wire [DBIT-1:0] tx_din;
+
+  UART_TX #(
+    .DBIT(DBIT),
+    .SB_TICK(SB_TICK)
+  ) transmitter (
     .clk(clk),
-    .reset_n(~reset),
-    .tx_start(tx_start),
+    .reset_n(reset_n),
+    .tx_start(~tx_fifo_empty),
     .s_tick(tick),
     .tx_din(tx_din),
     .tx_done_tick(tx_done_tick),
     .tx(tx)
   );
 
-  // TX FIFO
-  FIFO #(.FIFO_WIDTH(data_bits), .FIFO_DEPTH(1024)) fifo_tx (
+  FIFO #(
+    .FIFO_WIDTH(DBIT),
+    .FIFO_DEPTH(FIFO_DEPTH)
+  ) fifo_tx (
     .clk(clk),
-    .reset(reset),
-    .fifo_wr_enable(wr_uart),
-    .fifo_wr_data(w_data),
-    .fifo_full(tx_full),
-    .fifo_rd_enable(tx_done_tick),
-    .fifo_rd_data(tx_din),
-    .fifo_empty(tx_fifo_empty),
-    .fifo_data_count()
+    .reset_n(reset_n),
+    .wr_en(wr_uart),
+    .data_in(w_data),
+    .FIFO_FULL(tx_full),
+    .rd_en(tx_done_tick),
+    .data_out(tx_din),
+    .FIFO_EMPTY(tx_fifo_empty),
+    .DATA_COUNT()
   );
 
 endmodule
