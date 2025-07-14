@@ -19,10 +19,9 @@
 // 
 //////////////////////////////////////////////////////////////////////////////////
 
-
 module baud_rate_generator #(parameter BITS = 16 )(
 input clk,
-input reset,
+input reset_n,
 input enable,
 input [BITS-1:0] FINAL_VALUE,
 output  done
@@ -31,8 +30,8 @@ output  done
   reg [BITS-1:0] q_present,q_next;
   
 //present-state
- always@(posedge clk or negedge reset)
-    if(~reset)
+ always@(posedge clk or negedge reset_n)
+    if(~reset_n)
         q_present <= 1'b0;
     else if(enable)
         q_present <= q_next;
@@ -44,7 +43,7 @@ output  done
     if(done)
         q_next = 1'b0;
     else
-        q_next = q_present + 1 ;
+        q_next = q_present + 1'b1 ;
         end
     
 endmodule
